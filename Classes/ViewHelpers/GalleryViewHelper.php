@@ -43,7 +43,7 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     public function injectSettings(array $settings): void
     {
-        $this->settings =$settings;
+        $this->settings = $settings;
     }
 
     public function initializeArguments(): void
@@ -54,36 +54,45 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     public function render(): string
     {
-        $this->galleryNode =$this->arguments['galleryNode'];
-        $this->templateVariableContainer->add('themeSettings',$this->getSettingsForCurrentTheme());
+        $this->galleryNode = $this->arguments['galleryNode'];
+        $this->templateVariableContainer->add('themeSettings', $this->getSettingsForCurrentTheme());
 
-        $images = array_merge($this->selectImagesByTag(),
-            $this->selectImagesByAssetCollection(),$this->getSelectedImages()
+        $images = array_merge(
+            $this->selectImagesByTag(),
+            $this->selectImagesByAssetCollection(),
+            $this->getSelectedImages()
         );
 
         if (count($images) === 0) {
             return $this->translator->translateById('gallery.noImagesSelected', [], null, null, 'Main', 'DL.Gallery');
         }
 
-        $result = '';$i = 0;
+        $result = '';
+        $i = 0;
 
-        foreach ($images as$image) {
+        foreach ($images as $image) {
             if ($image instanceof Image) {
-                /** @var Image $image */$this->templateVariableContainer->add('image', $image);$this->templateVariableContainer->add('imageMeta', $this->buildImageMetaDataArray($image));
+                /** @var Image $image */
+                $this->templateVariableContainer->add('image', $image);
+                $this->templateVariableContainer->add('imageMeta', $this->buildImageMetaDataArray($image));
 
-                if ($i === 0) {$this->templateVariableContainer->add('isFirst', true);
-                } elseif ($this->templateVariableContainer->exists('isFirst')) {$this->templateVariableContainer->remove('isFirst');
+                if ($i === 0) {
+                    $this->templateVariableContainer->add('isFirst', true);
+                } elseif ($this->templateVariableContainer->exists('isFirst')) {
+                    $this->templateVariableContainer->remove('isFirst');
                 }
 
-                $result .=$this->renderChildren();
+                $result .= $this->renderChildren();
 
-                $this->templateVariableContainer->remove('image');$this->templateVariableContainer->remove('imageMeta');
+                $this->templateVariableContainer->remove('image');
+                $this->templateVariableContainer->remove('imageMeta');
 
                 $i++;
             }
         }
 
-        if ($this->templateVariableContainer->exists('isFirst')) {$this->templateVariableContainer->remove('isFirst');
+        if ($this->templateVariableContainer->exists('isFirst')) {
+            $this->templateVariableContainer->remove('isFirst');
         }
 
         $this->templateVariableContainer->remove('themeSettings');
@@ -92,14 +101,16 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     protected function getSelectedImages(): array
     {
-        $images =$this->galleryNode->getProperty('assets');
+        $images = $this->galleryNode->getProperty('assets');
 
         if (!is_array($images)) {
             return [];
         }
 
-        $sortingField =$this->galleryNode->getProperty('sortingField');
-        if ($sortingField !== 'unsorted' && is_string($sortingField)) {$sortingDirection = $this->galleryNode->getProperty('sortingDirection');$this->sortImageObjects($images,$sortingField, is_string($sortingDirection) ?$sortingDirection : 'ASC');
+        $sortingField = $this->galleryNode->getProperty('sortingField');
+        if ($sortingField !== 'unsorted' && is_string($sortingField)) {
+            $sortingDirection = $this->galleryNode->getProperty('sortingDirection');
+            $this->sortImageObjects($images, $sortingField, is_string($sortingDirection) ? $sortingDirection : 'ASC');
         }
 
         return $images;
@@ -107,9 +118,9 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     protected function selectImagesByTag(): array
     {
-        $tagIdentifier =$this->galleryNode->getProperty('tag');
+        $tagIdentifier = $this->galleryNode->getProperty('tag');
 
-        if (empty($tagIdentifier) || $tagIdentifier === '~' \vert{}\vert{} !is_string($tagIdentifier)) {
+        if (empty($tagIdentifier) || $tagIdentifier === '~' || !is_string($tagIdentifier)) {
             return [];
         }
 
@@ -125,7 +136,7 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     protected function selectImagesByAssetCollection(): array
     {
-        $assetCollection =$this->galleryNode->getProperty('assetCollection');
+        $assetCollection = $this->galleryNode->getProperty('assetCollection');
 
         if (!($assetCollection instanceof AssetCollection)) {
             return [];
@@ -145,23 +156,25 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     protected function getSettingsForCurrentTheme(): array
     {
-        $theme =$this->galleryNode->getProperty('theme');
-        if (!is_string($theme)) {$theme = 'default';
+        $theme = $this->galleryNode->getProperty('theme');
+        if (!is_string($theme)) {
+            $theme = 'default';
         }
         return $this->settings['themes'][$theme]['themeSettings'] ?? [];
     }
 
-    protected function sortImageObjects(array &$images, string $field = 'resource.filename', string$direction = 'ASC'): void
+    protected function sortImageObjects(array &$images, string $field = 'resource.filename', string $direction = 'ASC'): void
     {
         usort($images, function ($imageA, $imageB) use ($field) {
-            $valueA = ObjectAccess::getPropertyPath($imageA, $field);$valueB = ObjectAccess::getPropertyPath($imageB,$field);
+            $valueA = ObjectAccess::getPropertyPath($imageA, $field);
+            $valueB = ObjectAccess::getPropertyPath($imageB, $field);
 
             if ($valueA instanceof \DateTime) {
-                $valueA = (string)$valueA->getTimestamp();
+                $valueA = (string) $valueA->getTimestamp();
             }
 
             if ($valueB instanceof \DateTime) {
-                $valueB = (string)$valueB->getTimestamp();
+                $valueB = (string) $valueB->getTimestamp();
             }
 
             return strcmp((string)$valueA, (string)$valueB);
@@ -174,5 +187,17 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
 
     protected function setImageRepositoryDefaultOrderings(): void
     {
-        $sortingField =$this->galleryNode->getProperty('sortingField');
-        if ($sortingField === 'unsorted' \vert{}\vert{} empty($
+        $sortingField = $this->galleryNode->getProperty('sortingField');
+        if ($sortingField === 'unsorted' || empty($sortingField)) {
+            return;
+        }
+
+        $sortingDirection = $this->galleryNode->getProperty('sortingDirection') === QueryInterface::ORDER_DESCENDING 
+            ? QueryInterface::ORDER_DESCENDING 
+            : QueryInterface::ORDER_ASCENDING;
+
+        $this->imageRepository->setDefaultOrderings([
+            (string)$sortingField => $sortingDirection
+        ]);
+    }
+}
