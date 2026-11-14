@@ -6,7 +6,7 @@ namespace DL\Gallery\ViewHelpers;
 /*
  * This file is part of the DL.Gallery package.
  *
- * (c) Daniel Lienert 2016
+ * (c) Daniel Lienert 2016-2026
  *
  * This package is Open Source Software. For the full copyright and license
  * information, please view the LICENSE file which was distributed with this
@@ -20,7 +20,7 @@ use Neos\FluidAdaptor\Core\ViewHelper\AbstractTagBasedViewHelper;
 use Neos\Media\Domain\Model\AssetCollection;
 use Neos\Media\Domain\Model\Image;
 use Neos\Media\Domain\Model\Tag;
-use Neos\ContentRepository\Domain\Model\Node;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
 use Neos\Media\Domain\Repository\ImageRepository;
 use Neos\Media\Domain\Repository\TagRepository;
 use Neos\Utility\ObjectAccess;
@@ -28,162 +28,113 @@ use Neos\Utility\ObjectAccess;
 class GalleryViewHelper extends AbstractTagBasedViewHelper
 {
 
-    /**
-     * @Flow\Inject
-     * @var TagRepository
-     */
-    protected $tagRepository;
+    #[Flow\Inject]
+    protected TagRepository $tagRepository;
 
-    /**
-     * @Flow\Inject
-     * @var ImageRepository
-     */
-    protected $imageRepository;
+    #[Flow\Inject]
+    protected ImageRepository $imageRepository;
 
-    /**
-     * @var Translator
-     * @Flow\Inject
-     */
-    protected $translator;
+    #[Flow\Inject]
+    protected Translator $translator;
 
-    /**
-     * @var array
-     */
-    protected $settings;
+    protected array $settings = [];
 
-    /**
-     * @var Node
-     */
-    protected $galleryNode;
+    protected ?Node $galleryNode = null;
 
-    /**
-     * @param array $settings
-     * @return void
-     */
-    public function injectSettings(array $settings)
+    public function injectSettings(array $settings): void
     {
-        $this->settings = $settings;
+        $this->settings =$settings;
     }
 
-    public function initializeArguments()
+    public function initializeArguments(): void
     {
         parent::initializeArguments();
         $this->registerArgument('galleryNode', Node::class, 'The gallery node', true);
     }
 
-    /**
-     * @param Node $galleryNode
-     * @return string
-     */
-    public function render()
+    public function render(): string
     {
-        $this->galleryNode = $this->arguments['galleryNode'];
-        $this->templateVariableContainer->add('themeSettings', $this->getSettingsForCurrentTheme());
+        $this->galleryNode =$this->arguments['galleryNode'];
+        $this->templateVariableContainer->add('themeSettings',$this->getSettingsForCurrentTheme());
 
-        $images = array_merge(
-            $this->selectImagesByTag(),
-            $this->selectImagesByAssetCollection(),
-            $this->getSelectedImages()
+        $images = array_merge($this->selectImagesByTag(),
+            $this->selectImagesByAssetCollection(),$this->getSelectedImages()
         );
 
         if (count($images) === 0) {
             return $this->translator->translateById('gallery.noImagesSelected', [], null, null, 'Main', 'DL.Gallery');
         }
 
-        $result = '';
-        $i = 0;
+        $result = '';$i = 0;
 
-        foreach ($images as $image) {
+        foreach ($images as$image) {
             if ($image instanceof Image) {
-                /** @var Image $image */
-                $this->templateVariableContainer->add('image', $image);
-                $this->templateVariableContainer->add('imageMeta', $this->buildImageMetaDataArray($image));
+                /** @var Image $image */$this->templateVariableContainer->add('image', $image);$this->templateVariableContainer->add('imageMeta', $this->buildImageMetaDataArray($image));
 
-                if ($i === 0) {
-                    $this->templateVariableContainer->add('isFirst', true);
-                } elseif ($this->templateVariableContainer->exists('isFirst')) {
-                    $this->templateVariableContainer->remove('isFirst');
+                if ($i === 0) {$this->templateVariableContainer->add('isFirst', true);
+                } elseif ($this->templateVariableContainer->exists('isFirst')) {$this->templateVariableContainer->remove('isFirst');
                 }
 
-                $result .= $this->renderChildren();
+                $result .=$this->renderChildren();
 
-                $this->templateVariableContainer->remove('image');
-                $this->templateVariableContainer->remove('imageMeta');
+                $this->templateVariableContainer->remove('image');$this->templateVariableContainer->remove('imageMeta');
 
                 $i++;
             }
+        }
+
+        if ($this->templateVariableContainer->exists('isFirst')) {$this->templateVariableContainer->remove('isFirst');
         }
 
         $this->templateVariableContainer->remove('themeSettings');
         return $result;
     }
 
-
-    /**
-     * @return array
-     */
     protected function getSelectedImages(): array
     {
-        $images = $this->galleryNode->getProperty('assets');
+        $images =$this->galleryNode->getProperty('assets');
 
         if (!is_array($images)) {
             return [];
         }
 
-        if ($this->galleryNode->getProperty('sortingField') !== 'unsorted') {
-            $this->sortImageObjects($images, $this->galleryNode->getProperty('sortingField'), $this->galleryNode->getProperty('sortingDirection'));
+        $sortingField =$this->galleryNode->getProperty('sortingField');
+        if ($sortingField !== 'unsorted' && is_string($sortingField)) {$sortingDirection = $this->galleryNode->getProperty('sortingDirection');$this->sortImageObjects($images,$sortingField, is_string($sortingDirection) ?$sortingDirection : 'ASC');
         }
 
         return $images;
     }
 
-
-    /**
-     * @return array
-     */
     protected function selectImagesByTag(): array
     {
-        $tagIdentifier = $this->galleryNode->getProperty('tag');
+        $tagIdentifier =$this->galleryNode->getProperty('tag');
 
-        if (empty($tagIdentifier) || $tagIdentifier === '~') {
+        if (empty($tagIdentifier) || $tagIdentifier === '~' \vert{}\vert{} !is_string($tagIdentifier)) {
             return [];
         }
 
         $tag = $this->tagRepository->findByIdentifier($tagIdentifier);
-        /** @var Tag $tag */
 
         if (!($tag instanceof Tag)) {
             return [];
         }
 
         $this->setImageRepositoryDefaultOrderings();
-        $images = $this->imageRepository->findByTag($tag)->toArray();
-
-        return $images;
+        return $this->imageRepository->findByTag($tag)->toArray();
     }
 
-    /**
-     * @return array
-     */
     protected function selectImagesByAssetCollection(): array
     {
-        $assetCollection = $this->galleryNode->getProperty('assetCollection');
+        $assetCollection =$this->galleryNode->getProperty('assetCollection');
 
         if (!($assetCollection instanceof AssetCollection)) {
             return [];
         }
 
         $this->setImageRepositoryDefaultOrderings();
-        $images = $this->imageRepository->findByAssetCollection($assetCollection)->toArray();
-
-        return $images;
+        return $this->imageRepository->findByAssetCollection($assetCollection)->toArray();
     }
 
-
-    /**
-     * @param Image $image
-     * @return array
-     */
     protected function buildImageMetaDataArray(Image $image): array
     {
         return [
@@ -192,34 +143,28 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
         ];
     }
 
-    /**
-     * @return array
-     */
     protected function getSettingsForCurrentTheme(): array
     {
-        return $this->settings['themes'][$this->galleryNode->getProperty('theme')]['themeSettings'];
+        $theme =$this->galleryNode->getProperty('theme');
+        if (!is_string($theme)) {$theme = 'default';
+        }
+        return $this->settings['themes'][$theme]['themeSettings'] ?? [];
     }
 
-    /**
-     * @param array $images
-     * @param string $field
-     * @param string $direction
-     */
-    protected function sortImageObjects(array &$images, string $field = 'resource.filename', string $direction = 'ASC')
+    protected function sortImageObjects(array &$images, string $field = 'resource.filename', string$direction = 'ASC'): void
     {
         usort($images, function ($imageA, $imageB) use ($field) {
-            $valueA = ObjectAccess::getPropertyPath($imageA, $field);
-            $valueB = ObjectAccess::getPropertyPath($imageB, $field);
+            $valueA = ObjectAccess::getPropertyPath($imageA, $field);$valueB = ObjectAccess::getPropertyPath($imageB,$field);
 
             if ($valueA instanceof \DateTime) {
-                $valueA =  (string) $valueA->getTimestamp();
+                $valueA = (string)$valueA->getTimestamp();
             }
 
             if ($valueB instanceof \DateTime) {
-                $valueB =  (string) $valueB->getTimestamp();
+                $valueB = (string)$valueB->getTimestamp();
             }
 
-            return strcmp($valueA, $valueB);
+            return strcmp((string)$valueA, (string)$valueB);
         });
 
         if ($direction === 'DESC') {
@@ -227,17 +172,7 @@ class GalleryViewHelper extends AbstractTagBasedViewHelper
         }
     }
 
-    protected function setImageRepositoryDefaultOrderings()
+    protected function setImageRepositoryDefaultOrderings(): void
     {
-        if ($this->galleryNode->getProperty('sortingField') === 'unsorted') {
-            return;
-        }
-
-        $sortingField = $this->galleryNode->getProperty('sortingField') ?: 'resource.filename';
-        $sortingDirection = $this->galleryNode->getProperty('sortingDirection') === QueryInterface::ORDER_DESCENDING ? QueryInterface::ORDER_DESCENDING : QueryInterface::ORDER_ASCENDING;
-
-        $this->imageRepository->setDefaultOrderings([
-            $sortingField => $sortingDirection
-        ]);
-    }
-}
+        $sortingField =$this->galleryNode->getProperty('sortingField');
+        if ($sortingField === 'unsorted' \vert{}\vert{} empty($
