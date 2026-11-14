@@ -6,42 +6,27 @@ namespace DL\Gallery\ViewHelpers;
 /*
  * This file is part of the DL.Gallery package.
  *
- * (c) Daniel Lienert 2016
+ * (c) Daniel Lienert 2016-2026
  *
  * This package is Open Source Software. For the full copyright and license
  * information, please view the LICENSE file which was distributed with this
  * source code.
  */
 
+use DL\Gallery\Exceptions\InvalidConfigurationException;
 use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
-use Neos\FluidAdaptor\Core\ViewHelper\Exception;
 use Neos\Media\Domain\Model\Image;
-use Neos\Media\Domain\Model\ImageInterface;
-use Neos\Media\Exception\AssetServiceException;
-use Neos\Media\Exception\ThumbnailServiceException;
 
 class ImageViewHelper extends \Neos\Media\ViewHelpers\ImageViewHelper
 {
-    /**
-     * @var array
-     */
-    protected $settings;
+    protected array $settings = [];
 
-    /**
-     * @param array $settings
-     * @return void
-     */
-    public function injectSettings(array $settings)
+    public function injectSettings(array $settings): void
     {
         $this->settings = $settings;
     }
 
-    /**
-     * @return void
-     * @throws Exception
-     */
-    public function initializeArguments()
+    public function initializeArguments(): void
     {
         parent::initializeArguments();
         $this->registerTagAttribute('theme', 'string', 'The name of a gallery theme', false);
@@ -49,51 +34,64 @@ class ImageViewHelper extends \Neos\Media\ViewHelpers\ImageViewHelper
         $this->overrideArgument('alt', 'string', 'The alt attribute', false);
     }
 
-    /**
-     * @return string an <img...> html tag
-     *
-     * @throws MissingActionNameException
-     * @throws AssetServiceException
-     * @throws ThumbnailServiceException
-     */
     public function render(): string
     {
-        if ($this->hasArgument('theme') && $this->hasArgument('imageVariant')) {
-            $themeSettings = $this->getSettingsForCurrentTheme($this->arguments['theme']);
+        $theme = $this->hasArgument('theme') ? $this->arguments['theme'] : null;
+        $imageVariant = $this->hasArgument('imageVariant') ? $this->arguments['imageVariant'] : null;
 
-            $imageVariantSettings = $themeSettings['imageVariants'][$this->arguments['imageVariant']];
+        if (is_string($theme) && is_string($imageVariant)) {
+            $themeSettings = $this->getSettingsForCurrentTheme($theme);
 
-            $this->arguments['width'] = isset($imageVariantSettings['width']) ? $imageVariantSettings['width'] : 0;
-            $this->arguments['maximumWidth'] = isset($imageVariantSettings['maximumWidth']) ? $imageVariantSettings['maximumWidth'] : 0;
-            $this->arguments['height'] = isset($imageVariantSettings['height']) ? $imageVariantSettings['height'] : 0;
-            $this->arguments['maximumHeight'] = isset($imageVariantSettings['maximumHeight']) ? $imageVariantSettings['maximumHeight'] : 0;
+            if (!isset($themeSettings['imageVariants'][$imageVariant])) {
+                throw new InvalidConfigurationException(sprintf('The theme "%s" has no imageVariant with name "%s" defined.', $theme, $imageVariant), 1503035707);
+            }
 
-            $this->arguments['allowCropping'] = isset($imageVariantSettings['allowCropping']) ? $imageVariantSettings['allowCropping'] : false;
-            $this->arguments['allowUpScaling'] = isset($imageVariantSettings['allowUpScaling']) ? $imageVariantSettings['allowUpScaling'] : false;
+            $imageVariantSettings = $themeSettings['imageVariants'][$imageVariant];
 
-            $this->tag->removeAttribute('theme');
-            $this->tag->removeAttribute('imageVariant');
+            $this->arguments['width'] = $imageVariantSettings['width'] ?? null;
+            $this->arguments['maximumWidth'] = $imageVariantSettings['maximumWidth'] ?? null;
+            $this->arguments['height'] = $imageVariantSettings['height'] ?? null;
+            $this->arguments['maximumHeight'] = $imageVariantSettings['maximumHeight'] ?? null;
+
+            $this->arguments['allowCropping'] = $imageVariantSettings['allowCropping'] ?? false;
+            $this->arguments['allowUpScaling'] = $imageVariantSettings['allowUpScaling'] ?? false;
+
+            if ($this->tag->hasAttribute('theme')) {
+                $this->tag->removeAttribute('theme');
+            }
+            if ($this->tag->hasAttribute('imageVariant')) {
+                $this->tag->removeAttribute('imageVariant');
+            }
         }
 
-        /** @var Image $image */
-        $image = $this->arguments['image'];
+        $image = $this->arguments['image'] ?? null;
+        if ($image instanceof Image) {
+            $title = $image->getTitle();
+            $caption = $image->getCaption();
 
-        $this->tag->addAttributes([
-            'title' => $image->getTitle(),
-            'alt' => $image->getCaption() ? $image->getCaption() : $image->getTitle()
-        ]);
+            $altText = !empty($caption) ? $caption : $title;
 
-        $this->arguments['alt'] = $this->tag->getAttribute('alt'); // so that parent::render doesn't override the alt
+            $this->tag->addAttributes([
+                'title' => $title,
+                'alt' => $altText
+            ]);
+
+            $this->arguments['alt'] = $this->tag->getAttribute('alt');
+        }
 
         return parent::render();
     }
 
-    /**
-     * @param $theme
-     * @return mixed
-     */
-    protected function getSettingsForCurrentTheme($theme)
+    protected function getSettingsForCurrentTheme(string $theme): array
     {
+        if (!isset($this->settings['themes'][$theme])) {
+            throw new InvalidConfigurationException(sprintf('No theme with name %s was found in settings.', $theme), 1503035486);
+        }
+
+        if (!isset($this->settings['themes'][$theme]['themeSettings'])) {
+            throw new InvalidConfigurationException(sprintf('The theme %s has no themeSettings defined ', $theme), 1503035487);
+        }
+
         return $this->settings['themes'][$theme]['themeSettings'];
     }
 }
