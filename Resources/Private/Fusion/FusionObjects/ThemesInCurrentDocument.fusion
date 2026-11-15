@@ -1,5 +1,5 @@
 prototype(DL.Gallery:ThemesInCurrentDocument) < prototype(Neos.Fusion:Map) {
-    collection = ${q(documentNode).children('[instanceof Neos.Neos:ContentCollection]').find('[instanceof DL.Gallery:Gallery]').get()}
+    collection = ${q(documentNode).children().filter('[instanceof Neos.Neos:ContentCollection]').find('[instanceof DL.Gallery:Gallery]').get()}
     itemName = 'gallery'
     itemRenderer = ${gallery.properties.theme}
 }
